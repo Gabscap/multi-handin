@@ -1,40 +1,24 @@
-var requestAsync = require('request');
-var request = require('sync-request');
-var cheerio = require('cheerio');
-var fs = require('fs');
-var mkdirp = require('mkdirp');
+var requestAsync = require("request");
+var cheerio = require("cheerio");
+var fs = require("fs");
+var mkdirp = require("mkdirp");
 var config = require("./config");
+var util = require("./util");
 
-var FSEP = "/";
-var UPLOAD_STRING = "Upload...";
+const FSEP = "/";
+const UPLOAD_STRING = "Upload...";
+const GRADE_FILENAME = "grade.rktd";
+const GRADE_0_POINTS = "grade0.rktd";
+const GRADE_0_SUFFIX = "_";
 var ASSIGNMENT_DIR = config.dir + FSEP + config.assignment;
 
 mkdirp.sync(ASSIGNMENT_DIR);
 
+var useGrade0 = util.fileExists(GRADE_0_POINTS);
 var done = [];
 
-config.students.forEach(function (student) {
-	var res = request("GET", config.base_url + "?student=" + student);
-	if (res.statusCode != 200) {
-		console.log("error 1: " + student);
-		return;
-	}
-	var $ = cheerio.load(res.getBody());
-	var login_suffix = ($(".status-login").attr("action"));
-
-	var res = request("POST",
-		config.base_url + login_suffix,
-		{
-			headers: { "content-type": "application/x-www-form-urlencoded" },
-			body: jsonToFormData({ user: config.user, passwd: config.password }),
-			followRedirects: true
-		});
-	if (res.statusCode != 200) {
-		console.log("error 2: " + student);
-		return;
-	}
-
-	var $ = cheerio.load(res.getBody());
+config.students.forEach(student => {
+	var $ = cheerio.load(util.loginStudent(student));
 	var assignmentTD = $(".submissions tbody th").filter(function () {
 		return $(this).text().trim() === config.assignment;
 	}).next();
@@ -51,15 +35,19 @@ config.students.forEach(function (student) {
 		var handins = assignmentTD.find("li a").filter(function () {
 			return $(this).text().trim() !== UPLOAD_STRING;
 		});
+		var destDir = ASSIGNMENT_DIR + FSEP + groupName;
+		mkdirp.sync(destDir);
 		if (handins.length <= 0) {
 			console.log("Keine Abgabe:\t" + groupName);
+			var gradeFile = destDir + FSEP + GRADE_FILENAME;
+			if (useGrade0 && !util.fileExists(gradeFile)) {
+				fs.createReadStream(GRADE_0_POINTS).pipe(fs.createWriteStream(gradeFile + GRADE_0_SUFFIX));
+			}
 		} else {
 			console.log("Abgabe:\t\t" + groupName);
 			handins.each(function () {
 				var filename = $(this).text();
 				var url = config.base_url + $(this).attr("href");
-				var destDir = ASSIGNMENT_DIR + FSEP + groupName;
-				mkdirp.sync(destDir);
 				var file = fs.createWriteStream(destDir + FSEP + filename);
 				requestAsync(url).pipe(file);
 			});
@@ -68,10 +56,3 @@ config.students.forEach(function (student) {
 		//console.log("Already downloaded assignment: " + groupName);
 	}
 });
-
-function jsonToFormData(obj) {
-	var str = [];
-	for(var p in obj)
-	str.push(encodeURIComponent(p) + "=" + encodeURIComponent(obj[p]));
-	return str.join("&");
-}
