@@ -27,7 +27,7 @@ config.students.forEach(student => {
 		.replace(/:+$/, "")
 		.replace(/^Team/, "")
 		.trim();
-	if (groupName === "") {
+	if (groupName === "" || groupName.indexOf(' ') > -1) {
 		groupName = student;
 	}
 	if (done.indexOf(groupName) <= -1) {

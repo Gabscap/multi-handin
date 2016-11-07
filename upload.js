@@ -26,6 +26,10 @@ fs.readdirSync(ASSIGNMENT_DIR).forEach(groupName => {
 		var uploadURL = assignmentTD.find("li a").filter(function () {
 			return $(this).text().trim() === UPLOAD_STRING;
 		}).attr("href");
+		if (!uploadURL) {
+			console.log("error uploading " + groupName);
+			return;
+		}
 
 		var res = request("GET", config.base_url + uploadURL);
 		if (res.statusCode != 200) {
@@ -45,7 +49,7 @@ fs.readdirSync(ASSIGNMENT_DIR).forEach(groupName => {
 		form.pipe(req);
 		req.on("response", function (res) {
 			if (res.statusCode != 200) {
-				console.log("error u2: " + loginName);
+				console.log("error u2: " + loginName + ", status: " + res.statusCode);
 			}
 		}).on("data", function (data) {
 			var $ = cheerio.load(data);
