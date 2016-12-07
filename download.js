@@ -17,7 +17,13 @@ mkdirp.sync(ASSIGNMENT_DIR);
 var useGrade0 = util.fileExists(GRADE_0_POINTS);
 var done = [];
 
-config.students.forEach(student => {
+var students = config.students;
+
+if (process.argv[2]) {
+	students = [ process.argv[2] ];
+}
+
+students.forEach(student => {
 	var $ = cheerio.load(util.loginStudent(student));
 	var assignmentTD = $(".submissions tbody th").filter(function () {
 		return $(this).text().trim() === config.assignment;
